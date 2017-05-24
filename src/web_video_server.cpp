@@ -197,35 +197,25 @@ bool WebVideoServer::handle_list_streams(const async_web_server_cpp::HttpRequest
   async_web_server_cpp::HttpReply::builder(async_web_server_cpp::HttpReply::ok).header("Connection", "close").header(
       "Server", "web_video_server").header("Cache-Control",
                                            "no-cache, no-store, must-revalidate, pre-check=0, post-check=0, max-age=0").header(
-      "Pragma", "no-cache").header("Content-type", "text/html;").write(connection);
+      "Pragma", "no-cache").header("Access-Control-Allow-Origin","*").header("Content-type", "text/html;").write(connection);
 
-  connection->write("<html>"
-                    "<head><title>ROS Image Topic List</title></head>"
-                    "<body><h1>Available ROS Image Topics:</h1>");
-  connection->write("<ul>");
+  connection->write("{ \"topics\": [ ");
+  int list_count = 0;
   BOOST_FOREACH(std::string & camera_info_topic, camera_info_topics)
   {
     if (boost::algorithm::ends_with(camera_info_topic, "/camera_info"))
     {
       std::string base_topic = camera_info_topic.substr(0, camera_info_topic.size() - strlen("camera_info"));
-      connection->write("<li>");
-      connection->write(base_topic);
-      connection->write("<ul>");
       std::vector<std::string>::iterator image_topic_itr = image_topics.begin();
       for (; image_topic_itr != image_topics.end();)
       {
         if (boost::starts_with(*image_topic_itr, base_topic))
         {
-          connection->write("<li><a href=\"/stream_viewer?topic=");
+          if(list_count) connection->write(",");
+          list_count++;
+          connection->write("\"");
           connection->write(*image_topic_itr);
-          connection->write("\">");
-          connection->write(image_topic_itr->substr(base_topic.size()));
-          connection->write("</a> (");
-          connection->write("<a href=\"/snapshot?topic=");
-          connection->write(*image_topic_itr);
-          connection->write("\">Snapshot</a>)");
-          connection->write("</li>");
-
+          connection->write("\"");
           image_topic_itr = image_topics.erase(image_topic_itr);
         }
         else
@@ -233,28 +223,20 @@ bool WebVideoServer::handle_list_streams(const async_web_server_cpp::HttpRequest
           ++image_topic_itr;
         }
       }
-      connection->write("</ul>");
     }
-    connection->write("</li>");
   }
-  connection->write("</ul>");
+
   // Add the rest of the image topics that don't have camera_info.
-  connection->write("<ul>");
   std::vector<std::string>::iterator image_topic_itr = image_topics.begin();
   for (; image_topic_itr != image_topics.end();) {
-    connection->write("<li><a href=\"/stream_viewer?topic=");
+    if(list_count) connection->write(",");
+    list_count++;
+    connection->write("\"");
     connection->write(*image_topic_itr);
-    connection->write("\">");
-    connection->write(*image_topic_itr);
-    connection->write("</a> (");
-    connection->write("<a href=\"/snapshot?topic=");
-    connection->write(*image_topic_itr);
-    connection->write("\">Snapshot</a>)");
-    connection->write("</li>");
-
+    connection->write("\"");
     image_topic_itr = image_topics.erase(image_topic_itr);
   }
-  connection->write("</ul></body></html>");
+  connection->write(" ] }");
   return true;
 }
 
